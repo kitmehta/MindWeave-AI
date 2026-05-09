@@ -2,116 +2,222 @@
 
 import os
 import json
+
 from flask import Blueprint, request, jsonify
+
 from config import AI_PROVIDER
 from extensions import openai_client
-import google.generativeai as genai
 from services.file_parser import extract_text_from_bytes
 
+# ---------------------------------------------------
+# GEMINI CLIENT
+# ---------------------------------------------------
+client = None
+
+if AI_PROVIDER == "gemini":
+    try:
+        from google import genai
+
+        client = genai.Client(
+            api_key=os.getenv("GOOGLE_API_KEY")
+        )
+
+        print("Gemini client initialized successfully.")
+
+    except Exception as e:
+        print(f"Gemini initialization failed: {e}")
+
+# ---------------------------------------------------
+# BLUEPRINT
+# ---------------------------------------------------
 syllabus_bp = Blueprint("syllabus", __name__)
 
 
 @syllabus_bp.route("/api/syllabus/parse", methods=["POST"])
 def parse_syllabus():
-    """Accept a PDF or DOCX syllabus upload and extract course fields using AI."""
+    """
+    Parse uploaded syllabus PDF/DOCX using AI.
+    """
+
+    # ---------------------------------------------------
+    # VALIDATE FILE
+    # ---------------------------------------------------
     if "file" not in request.files:
-        return jsonify({"error": "No file field in request"}), 400
+        return jsonify({
+            "error": "No file field in request"
+        }), 400
 
     uploaded = request.files["file"]
+
     if not uploaded or not uploaded.filename:
-        return jsonify({"error": "No file uploaded"}), 400
+        return jsonify({
+            "error": "No file uploaded"
+        }), 400
 
     filename = uploaded.filename
+
     ext = os.path.splitext(filename.lower())[1]
-    if ext not in (".pdf", ".docx"):
-        return jsonify({"error": "Only PDF and DOCX files are supported"}), 400
 
+    if ext not in [".pdf", ".docx"]:
+        return jsonify({
+            "error": "Only PDF and DOCX files are supported"
+        }), 400
+
+    # ---------------------------------------------------
+    # READ FILE
+    # ---------------------------------------------------
     content = uploaded.read()
-    if len(content) > 10 * 1024 * 1024:
-        return jsonify({"error": "File too large (max 10 MB)"}), 400
 
+    if len(content) > 10 * 1024 * 1024:
+        return jsonify({
+            "error": "File too large (max 10MB)"
+        }), 400
+
+    # ---------------------------------------------------
+    # EXTRACT TEXT
+    # ---------------------------------------------------
     try:
-        text = extract_text_from_bytes(filename, content)
+        text = extract_text_from_bytes(
+            filename,
+            content
+        )
+
     except Exception as e:
-        print(f"Syllabus text extraction error: {e}")
-        return jsonify({"error": f"Failed to extract text: {str(e)}"}), 500
+        print(f"Syllabus extraction error: {e}")
+
+        return jsonify({
+            "error": f"Failed to extract text: {str(e)}"
+        }), 500
 
     if not text.strip():
-        return jsonify({"error": "Could not extract any text from the file"}), 400
+        return jsonify({
+            "error": "No readable text found in syllabus"
+        }), 400
 
+    # ---------------------------------------------------
+    # LIMIT TOKENS
+    # ---------------------------------------------------
     truncated = text[:6000]
 
-    prompt = f"""You are a course metadata extractor. Analyze the following syllabus text and extract the course information.
+    # ---------------------------------------------------
+    # PROMPT
+    # ---------------------------------------------------
+    prompt = f"""
+You are a syllabus parser.
 
-Return ONLY valid JSON with exactly this structure (use empty string "" or empty array [] if not found):
+Return ONLY valid JSON.
+
+Structure:
+
 {{
   "fields": {{
-    "topic": "The main course title or topic name",
-    "course_code": "The course code (e.g. CS 301, ACCT 201, CALL 9303-007)",
-    "level": "One of: undergraduate-year-1, undergraduate-year-2, undergraduate-year-3, undergraduate-year-4, master-year-1, master-year-2, doctoral, professional-beginner, professional-intermediate, professional-advanced, esl-beginner, esl-intermediate, esl-advanced, k12-elementary, k12-middle, k12-highschool",
-    "audience": "The target audience or discipline (e.g. Computer Science students, TESOL, MBA students)",
-    "accreditation_context": "Any accreditation body or standards mentioned (e.g. AACSB, CPA Canada)",
-    "course_type": "One of: mixed, project, essay, debate, lab — based on the dominant assessment style"
+    "topic": "",
+    "course_code": "",
+    "level": "",
+    "audience": "",
+    "accreditation_context": "",
+    "course_type": ""
   }},
-  "modules": [
-    {{
-      "module_number": 1,
-      "title": "Week/Module title exactly as written",
-      "learning_objectives": ["objective 1 from this week if listed, otherwise empty array"],
-      "complexity_level": 1
-    }}
-  ],
-  "references": [
-    {{
-      "title": "Title of required or recommended reading/textbook",
-      "authors": "Author(s) if listed",
-      "url": "URL or DOI if listed, otherwise empty string"
-    }}
-  ],
-  "assignments": [
-    {{
-      "title": "Assignment name (e.g. Midterm Essay, Final Project)",
-      "weight": "Grade weight if listed (e.g. 30%), otherwise empty string",
-      "description": "Brief description if provided, otherwise empty string",
-      "due": "Due date or week if mentioned, otherwise empty string"
-    }}
-  ]
+  "modules": [],
+  "references": [],
+  "assignments": []
 }}
 
 Rules:
-- modules: extract from Week schedule, Course Schedule, or Module outline sections. If no schedule found, return [].
-- references: extract from Required Readings, Textbook, Bibliography sections. If none found, return [].
-- assignments: extract course-level assessments (Midterm, Final, Assignments, Quizzes) with weights. If none found, return [].
-- complexity_level: estimate 1-5 based on week position (week 1 = 1, later weeks = higher).
-- Do NOT invent data. Only extract what is explicitly written.
+- Extract only information explicitly written
+- Do not hallucinate
+- Return valid JSON only
 
 Syllabus text:
-{truncated}"""
 
+{truncated}
+"""
+
+    # ---------------------------------------------------
+    # AI GENERATION
+    # ---------------------------------------------------
     try:
+
+        # -----------------------------------------------
+        # GEMINI
+        # -----------------------------------------------
         if AI_PROVIDER == "gemini":
-            model = genai.GenerativeModel("gemini-2.0-flash-lite")
-            response = model.generate_content(prompt)
-            raw = response.text
+
+            if client is None:
+                return jsonify({
+                    "error": "Gemini client not initialized"
+                }), 500
+
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+            )
+
+            raw = response.text.strip()
+
+        # -----------------------------------------------
+        # OPENAI
+        # -----------------------------------------------
         else:
+
+            if openai_client is None:
+                return jsonify({
+                    "error": "OpenAI client not initialized"
+                }), 500
+
             response = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
                 temperature=0.2,
                 max_tokens=2000,
             )
+
             raw = response.choices[0].message.content.strip()
-        raw = raw.replace("```json", "").replace("```", "").strip()
+
+        # ---------------------------------------------------
+        # CLEAN JSON
+        # ---------------------------------------------------
+        raw = (
+            raw
+            .replace("```json", "")
+            .replace("```", "")
+            .strip()
+        )
+
         parsed = json.loads(raw)
+
         return jsonify({
             "fields": parsed.get("fields", {}),
             "modules": parsed.get("modules", []),
             "references": parsed.get("references", []),
             "assignments": parsed.get("assignments", []),
         })
+
+    # ---------------------------------------------------
+    # JSON ERROR
+    # ---------------------------------------------------
     except json.JSONDecodeError as e:
-        print(f"Syllabus parse JSON error: {e}, raw: {raw[:200]}")
-        return jsonify({"error": "AI returned invalid JSON"}), 500
+
+        print(f"JSON parse error: {e}")
+
+        print(f"RAW RESPONSE:\n{raw[:500]}")
+
+        return jsonify({
+            "error": "AI returned invalid JSON"
+        }), 500
+
+    # ---------------------------------------------------
+    # GENERAL ERROR
+    # ---------------------------------------------------
     except Exception as e:
-        print(f"Syllabus parse AI error: {e}")
-        return jsonify({"error": f"Failed to parse syllabus: {str(e)}"}), 500
+
+        print(f"Syllabus AI error: {e}")
+
+        return jsonify({
+            "error": str(e)
+        }), 500

@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------
 
 import os
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 # 加载 .env 文件中的环境变量
@@ -49,7 +49,7 @@ print("请复制上面的所有输出信息，然后发给我。")
 # -----------------------------------------------------------------------------
 
 import os
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 # 加载 .env 文件中的环境变量

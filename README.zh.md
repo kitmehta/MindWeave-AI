@@ -388,7 +388,7 @@ docker compose up --build
    - **Course code**（选填）— 例如 "ADMS 2400"
    - **Year**（必填）— 该课程所属学年
 3. 将 PDF / PPTX / DOCX 文件拖入上传区域
-4. 点击 **Build Graph** — 后台自动运行知识图谱构建（约 $0.10–0.30 / 每 10 个 PDF，gpt-4o-mini 计费）
+4. 点击 **Build Graph** — 后台自动运行知识图谱构建（约 $0.10–0.30 / 每 10 个 PDF，llama-3.3-70b-versatile 计费）
 5. 构建完成后，图谱自动出现在对应学年和课程标签下
 
 

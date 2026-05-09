@@ -389,7 +389,7 @@ The knowledge graph feature lets you ingest your own course materials (PDFs, PPT
    - **Course code** (optional) — e.g. "ADMS 2400"
    - **Year** (required) — which year of study this course belongs to
 3. Drop your PDF / PPTX / DOCX files into the dropzone
-4. Click **Build Graph** — ingestion runs in the background (~$0.10–0.30 per 10 PDFs at gpt-4o-mini rates)
+4. Click **Build Graph** — ingestion runs in the background (~$0.10–0.30 per 10 PDFs at llama-3.3-70b-versatile rates)
 5. Once complete, the graph appears automatically under the correct year and course tab
 
 ---

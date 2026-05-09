@@ -47,7 +47,7 @@ export interface ModelOption {
 export const MODEL_OPTIONS: ModelOption[] = [
   // ── OpenAI ──
   { value: 'gpt-4o',            label: 'GPT-4o',            provider: 'openai',    cost: 0.52, arch: 'dense', recommended: true },
-  { value: 'gpt-4o-mini',       label: 'GPT-4o Mini',       provider: 'openai',    cost: 0.03, arch: 'dense' },
+  { value: 'llama-3.3-70b-versatile',       label: 'GPT-4o Mini',       provider: 'openai',    cost: 0.03, arch: 'dense' },
   // ── Anthropic ──
   { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6',  provider: 'anthropic', cost: 0.72, arch: 'dense', recommended: true },
   { value: 'claude-haiku-4-5',  label: 'Claude Haiku 4.5',   provider: 'anthropic', cost: 0.24, arch: 'dense' },

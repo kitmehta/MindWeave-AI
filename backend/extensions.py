@@ -1,78 +1,226 @@
-"""Flask app, AI clients, Redis, and third-party service initialization."""
+"""
+Flask app, AI clients, Redis, and third-party service initialization.
+Groq-first architecture with backward compatibility for old OpenAI imports.
+"""
 
+import os
+
+from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
-from openai import OpenAI
-import google.generativeai as genai
+from groq import Groq
 from tavily import TavilyClient
 
-from config import AI_PROVIDER, OPENAI_API_KEY, GEMINI_API_KEY, TAVILY_API_KEY
+# ---------------------------------------------------------------------------
+# Load environment variables
+# ---------------------------------------------------------------------------
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Flask app
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": "*"
+        }
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Redis (optional)
 # ---------------------------------------------------------------------------
+redis_client = None
+
 try:
-    import redis as _redis_lib
-    redis_client = _redis_lib.Redis(host="redis", port=6379, db=0, decode_responses=True)
+    import redis
+
+    redis_client = redis.Redis(
+        host=os.getenv("REDIS_HOST", "localhost"),
+        port=int(os.getenv("REDIS_PORT", 6379)),
+        db=0,
+        decode_responses=True,
+    )
+
     redis_client.ping()
-    print("Redis cache connected.")
-except Exception as _redis_err:
-    print(f"Redis unavailable, caching disabled: {_redis_err}")
+    print("✅ Redis connected")
+
+except Exception as e:
+    print(f"⚠️ Redis unavailable: {e}")
     redis_client = None
 
 # ---------------------------------------------------------------------------
-# Helpers: resolve a setting from Redis first, fall back to env var
+# Redis helper
 # ---------------------------------------------------------------------------
 _REDIS_PREFIX = "plotark:settings:"
 
 
-def _resolve(redis_key: str, env_fallback: str | None) -> str | None:
-    if redis_client:
-        stored = redis_client.get(_REDIS_PREFIX + redis_key)
-        if stored:
-            return stored
-    return env_fallback
-
-
-# ---------------------------------------------------------------------------
-# AI clients (initialized once at startup; reloaded via reload_clients())
-# ---------------------------------------------------------------------------
-openai_client = OpenAI(api_key=_resolve("openai_key", OPENAI_API_KEY))
-genai.configure(api_key=_resolve("gemini_key", GEMINI_API_KEY) or "")
-tavily_client = TavilyClient(api_key=_resolve("tavily_key", TAVILY_API_KEY))
-
-
-def reload_clients() -> None:
-    """Re-read API keys from Redis (falling back to env vars) and reinitialize AI clients.
-
-    Called by the settings route after a key is saved so new keys take effect
-    immediately without restarting the process.
+def _resolve(redis_key: str, env_value: str | None = None) -> str | None:
     """
-    global openai_client, tavily_client
-
-    openai_key = _resolve("openai_key", OPENAI_API_KEY)
-    gemini_key = _resolve("gemini_key", GEMINI_API_KEY) or ""
-    tavily_key = _resolve("tavily_key", TAVILY_API_KEY)
+    Resolve values from Redis first, fallback to environment.
+    """
 
     try:
-        openai_client = OpenAI(api_key=openai_key)
+        if redis_client:
+            stored = redis_client.get(_REDIS_PREFIX + redis_key)
+
+            if stored:
+                return stored
+
     except Exception as e:
-        print(f"reload_clients: OpenAI init failed: {e}")
+        print(f"Redis resolve error ({redis_key}): {e}")
+
+    return env_value
+
+
+# ---------------------------------------------------------------------------
+# GROQ CLIENT
+# ---------------------------------------------------------------------------
+groq_client = None
+
+try:
+    resolved_groq_key = _resolve(
+        "groq_key",
+        os.getenv("GROQ_API_KEY")
+    )
+
+    if resolved_groq_key:
+        groq_client = Groq(api_key=resolved_groq_key)
+        print("✅ Groq client initialized")
+
+    else:
+        print("⚠️ GROQ_API_KEY missing")
+
+except Exception as e:
+    print(f"❌ Groq initialization failed: {e}")
+    groq_client = None
+
+
+# ---------------------------------------------------------------------------
+# BACKWARD COMPATIBILITY
+# IMPORTANT:
+# Old files still import openai_client
+# We alias Groq client to avoid rewriting whole project
+# ---------------------------------------------------------------------------
+openai_client = groq_client
+
+
+# ---------------------------------------------------------------------------
+# TAVILY CLIENT
+# ---------------------------------------------------------------------------
+tavily_client = None
+
+try:
+    resolved_tavily_key = _resolve(
+        "tavily_key",
+        os.getenv("TAVILY_API_KEY")
+    )
+
+    if resolved_tavily_key:
+        tavily_client = TavilyClient(api_key=resolved_tavily_key)
+        print("✅ Tavily client initialized")
+
+    else:
+        print("⚠️ TAVILY_API_KEY missing")
+
+except Exception as e:
+    print(f"❌ Tavily initialization failed: {e}")
+    tavily_client = None
+
+
+# ---------------------------------------------------------------------------
+# GENERATE FUNCTION
+# ---------------------------------------------------------------------------
+def generate_with_groq(
+    prompt: str,
+    model: str = "llama-3.3-70b-versatile"
+):
+    """
+    Safe Groq generation wrapper.
+    """
+
+    if not groq_client:
+        return "Groq client not initialized"
 
     try:
-        genai.configure(api_key=gemini_key)
-    except Exception as e:
-        print(f"reload_clients: Gemini configure failed: {e}")
+        response = groq_client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.7,
+            max_tokens=4000,
+        )
 
+        return response.choices[0].message.content
+
+    except Exception as e:
+        print(f"Groq generation error: {e}")
+        return f"Groq error: {str(e)}"
+
+
+# ---------------------------------------------------------------------------
+# RELOAD CLIENTS
+# ---------------------------------------------------------------------------
+def reload_clients() -> None:
+    """
+    Reload AI clients dynamically.
+    """
+
+    global groq_client
+    global openai_client
+    global tavily_client
+
+    # ---------------- GROQ ----------------
     try:
-        tavily_client = TavilyClient(api_key=tavily_key)
-    except Exception as e:
-        print(f"reload_clients: Tavily init failed: {e}")
+        groq_key = _resolve(
+            "groq_key",
+            os.getenv("GROQ_API_KEY")
+        )
 
-    print("reload_clients: AI clients reinitialized.")
+        if groq_key:
+            groq_client = Groq(api_key=groq_key)
+
+            # backward compatibility
+            openai_client = groq_client
+
+            print("✅ Groq client reloaded")
+
+        else:
+            groq_client = None
+            openai_client = None
+
+            print("⚠️ Groq key missing during reload")
+
+    except Exception as e:
+        print(f"❌ Groq reload failed: {e}")
+
+        groq_client = None
+        openai_client = None
+
+    # ---------------- TAVILY ----------------
+    try:
+        tavily_key = _resolve(
+            "tavily_key",
+            os.getenv("TAVILY_API_KEY")
+        )
+
+        if tavily_key:
+            tavily_client = TavilyClient(api_key=tavily_key)
+            print("✅ Tavily client reloaded")
+
+        else:
+            tavily_client = None
+            print("⚠️ Tavily key missing during reload")
+
+    except Exception as e:
+        print(f"❌ Tavily reload failed: {e}")
+        tavily_client = None
+
+    print("✅ AI clients reload complete")

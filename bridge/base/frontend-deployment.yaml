@@ -1,0 +1,63 @@
+#! frontend-deployment.yaml
+# Generated code, do not edit
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: frontend
+    namespace: plot-ark
+    labels:
+        com.docker.compose.project: plot-ark
+        com.docker.compose.service: frontend
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            com.docker.compose.project: plot-ark
+            com.docker.compose.service: frontend
+    strategy:
+        type: Recreate
+    template:
+        metadata:
+            labels:
+                com.docker.compose.project: plot-ark
+                com.docker.compose.service: frontend
+                com.docker.compose.network.default: "true"
+        spec:
+            containers:
+                - name: frontend
+                  image: plot-ark-frontend
+                  imagePullPolicy: IfNotPresent
+                  env:
+                    - name: AI_PROVIDER
+                      value: "gemini"
+                    - name: CHOKIDAR_USEPOLLING
+                      value: "true"
+                    - name: DATABASE_URL
+                      value: "postgresql://plotark:plotark@postgres:5432/plotark"
+                    - name: GEMINI_MODEL
+                      value: "gemini-1.5-flash-8b"
+                    - name: GOOGLE_API_KEY
+                      value: "AIzaSyDyeRFiXhcAtjqPxduHfQOJE0KN2C8msYU"
+                    - name: OPENAI_API_KEY
+                      value: ""
+                    - name: REDIS_HOST
+                      value: "redis"
+                    - name: REDIS_PORT
+                      value: "6379"
+                    - name: TAVILY_API_KEY
+                      value: "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"
+                  ports:
+                    - name: frontend-3000
+                      containerPort: 3000
+                  volumeMounts:
+                    - name: app
+                      mountPath: /app
+                    - name: app-node-modules
+                      mountPath: /app/node_modules
+            volumes:
+                - name: app
+                  hostPath:
+                    path: C:\Users\ankitmehta\Plot-Ark\frontend
+                - name: app-node-modules
+                  persistentVolumeClaim:
+                    claimName: frontend-frontend-node-modules

@@ -194,7 +194,7 @@ SharedMemory keys use namespace `a2a:{session_id}:{key}` in Redis (TTL 1h), with
 
 ## AI Integration
 
-- **OpenAI GPT-4o-mini** — primary content generation (via `AI_PROVIDER=openai`)
+- **OpenAI llama-3.3-70b-versatile** — primary content generation (via `AI_PROVIDER=openai`)
 - **Google Gemini 2.5 Flash** — alternative (via `AI_PROVIDER=gemini`)
 - **Tavily Search API** — pre-generation academic source retrieval
 - **LightRAG** (HKUDS, MIT) — knowledge graph construction and NL query

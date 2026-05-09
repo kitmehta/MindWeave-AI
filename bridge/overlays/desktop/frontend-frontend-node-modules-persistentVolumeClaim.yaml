@@ -1,0 +1,9 @@
+#! frontend-frontend-node-modules-persistentVolumeClaim.yaml
+# Generated code, do not edit
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: frontend-frontend-node-modules
+    namespace: plot-ark
+spec:
+    storageClassName: "hostpath" # see docker/desktop-storage-provisioner

@@ -1,0 +1,21 @@
+#! frontend-service.yaml
+# Generated code, do not edit
+apiVersion: v1
+kind: Service
+metadata:
+    name: frontend-published
+    namespace: plot-ark
+    labels:
+        com.docker.compose.project: plot-ark
+        com.docker.compose.service: frontend
+spec:
+    selector:
+        com.docker.compose.project: plot-ark
+        com.docker.compose.service: frontend
+    ports:
+        - name: frontend-5173
+          port: 5173
+          protocol: TCP
+          targetPort: frontend-3000
+
+# check if there is at least one published port

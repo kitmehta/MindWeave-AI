@@ -118,12 +118,12 @@ const LoginPage: React.FC = () => {
               className="block leading-none"
               style={{ fontSize: '3.2rem', fontWeight: 300, letterSpacing: '-0.01em' }}
             >
-              Plot{' '}
+              MindWeave{' '}
               <em
                 className="not-italic font-semibold"
                 style={{ color: '#C5A028' }}
               >
-                Ark
+                AI
               </em>
             </span>
           </h1>

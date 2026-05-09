@@ -15,3 +15,5 @@ matplotlib>=3.8.0
 reportlab>=4.0
 openpyxl>=3.1.0
 cryptography>=42.0.0
+groq
+sentence-transformers

@@ -1,6 +1,6 @@
 ```mermaid
 flowchart TD
-    subgraph PlotArk["Plot Ark (你的系统)"]
+    subgraph plotark["Plot Ark (你的系统)"]
         UI["React Frontend\n课程生成/编辑"]
         BE["Flask Backend\n/api/curriculum/generate\n/api/xapi/statement"]
         DB[(PostgreSQL\n课程历史)]

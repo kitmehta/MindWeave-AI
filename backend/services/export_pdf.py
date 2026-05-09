@@ -93,34 +93,34 @@ def export_pdf(report: dict) -> bytes:
     styles = getSampleStyleSheet()
 
     # Custom styles
-    title_style = ParagraphStyle("PlotArkTitle", parent=styles["Title"],
+    title_style = ParagraphStyle("plotarkTitle", parent=styles["Title"],
                                  textColor=colors.HexColor(COLORS["stone_900"]),
                                  fontSize=24, spaceAfter=4)
-    subtitle_style = ParagraphStyle("PlotArkSubtitle", parent=styles["Heading1"],
+    subtitle_style = ParagraphStyle("plotarkSubtitle", parent=styles["Heading1"],
                                     textColor=colors.HexColor(COLORS["stone_700"]),
                                     fontSize=18, spaceBefore=4, spaceAfter=4)
-    meta_style = ParagraphStyle("PlotArkMeta", parent=styles["Normal"],
+    meta_style = ParagraphStyle("plotarkMeta", parent=styles["Normal"],
                                 textColor=colors.HexColor(COLORS["stone_500"]),
                                 fontSize=9, spaceAfter=12)
-    h2_style = ParagraphStyle("PlotArkH2", parent=styles["Heading2"],
+    h2_style = ParagraphStyle("plotarkH2", parent=styles["Heading2"],
                               textColor=colors.HexColor(COLORS["stone_900"]),
                               fontSize=16, spaceAfter=2, spaceBefore=12)
-    body_style = ParagraphStyle("PlotArkBody", parent=styles["Normal"],
+    body_style = ParagraphStyle("plotarkBody", parent=styles["Normal"],
                                 fontSize=10, spaceAfter=6)
 
     stat_card_num = ParagraphStyle("StatNum", textColor=colors.HexColor(COLORS["coffee"]), fontSize=36, fontName="Helvetica-Bold", leading=40, alignment=1, spaceAfter=4)
     stat_card_lbl = ParagraphStyle("StatLbl", textColor=colors.HexColor(COLORS["stone_500"]), fontSize=9, fontName="Helvetica-Bold", alignment=1)
-    insight_style = ParagraphStyle("PlotArkInsight", parent=styles["Normal"], textColor=colors.HexColor(COLORS["stone_500"]), fontSize=9, fontName="Helvetica-Oblique", spaceBefore=4, spaceAfter=8, leftIndent=10, rightIndent=10)
-    callout_style = ParagraphStyle("PlotArkCallout", textColor=colors.HexColor(COLORS["coffee"]), fontSize=48, fontName="Helvetica-Bold", leading=56, spaceAfter=8, spaceBefore=4)
-    callout_label = ParagraphStyle("PlotArkCalloutLbl", textColor=colors.HexColor(COLORS["stone_500"]), fontSize=12, fontName="Helvetica-Bold", spaceAfter=16)
+    insight_style = ParagraphStyle("plotarkInsight", parent=styles["Normal"], textColor=colors.HexColor(COLORS["stone_500"]), fontSize=9, fontName="Helvetica-Oblique", spaceBefore=4, spaceAfter=8, leftIndent=10, rightIndent=10)
+    callout_style = ParagraphStyle("plotarkCallout", textColor=colors.HexColor(COLORS["coffee"]), fontSize=48, fontName="Helvetica-Bold", leading=56, spaceAfter=8, spaceBefore=4)
+    callout_label = ParagraphStyle("plotarkCalloutLbl", textColor=colors.HexColor(COLORS["stone_500"]), fontSize=12, fontName="Helvetica-Bold", spaceAfter=16)
 
     # Cover page — Anthropic-style left-aligned layout
-    brand_style = ParagraphStyle("PlotArkBrand", textColor=colors.HexColor(COLORS["coffee"]), fontSize=10, fontName="Helvetica-Bold", spaceAfter=0, alignment=0)
-    report_type_style = ParagraphStyle("PlotArkReportType", textColor=colors.HexColor(COLORS["stone_500"]), fontSize=12, fontName="Helvetica", spaceAfter=6, alignment=0)
-    cover_title_style = ParagraphStyle("PlotArkCoverTitle", textColor=colors.HexColor(COLORS["coffee"]), fontSize=30, fontName="Helvetica-Bold", leading=36, spaceAfter=8, alignment=0)
-    cover_meta_style = ParagraphStyle("PlotArkCoverMeta", textColor=colors.HexColor(COLORS["stone_500"]), fontSize=9, fontName="Helvetica", spaceAfter=0, alignment=0)
-    col_label_style = ParagraphStyle("PlotArkColLbl", textColor=colors.HexColor(COLORS["stone_500"]), fontSize=8, fontName="Helvetica-Bold", spaceAfter=3, alignment=0)
-    col_val_style = ParagraphStyle("PlotArkColVal", textColor=colors.HexColor(COLORS["stone_700"]), fontSize=11, fontName="Helvetica", spaceAfter=0, alignment=0)
+    brand_style = ParagraphStyle("plotarkBrand", textColor=colors.HexColor(COLORS["coffee"]), fontSize=10, fontName="Helvetica-Bold", spaceAfter=0, alignment=0)
+    report_type_style = ParagraphStyle("plotarkReportType", textColor=colors.HexColor(COLORS["stone_500"]), fontSize=12, fontName="Helvetica", spaceAfter=6, alignment=0)
+    cover_title_style = ParagraphStyle("plotarkCoverTitle", textColor=colors.HexColor(COLORS["coffee"]), fontSize=30, fontName="Helvetica-Bold", leading=36, spaceAfter=8, alignment=0)
+    cover_meta_style = ParagraphStyle("plotarkCoverMeta", textColor=colors.HexColor(COLORS["stone_500"]), fontSize=9, fontName="Helvetica", spaceAfter=0, alignment=0)
+    col_label_style = ParagraphStyle("plotarkColLbl", textColor=colors.HexColor(COLORS["stone_500"]), fontSize=8, fontName="Helvetica-Bold", spaceAfter=3, alignment=0)
+    col_val_style = ParagraphStyle("plotarkColVal", textColor=colors.HexColor(COLORS["stone_700"]), fontSize=11, fontName="Helvetica", spaceAfter=0, alignment=0)
 
     def draw_header_footer(canvas, doc_obj):
         canvas.saveState()
@@ -216,10 +216,10 @@ def export_pdf(report: dict) -> bytes:
     elements.append(Spacer(1, 0.4*inch))
 
     # ── Table of Contents ──────────────────────────────────────────────
-    toc_heading = ParagraphStyle("PlotArkToC", parent=styles["Heading2"],
+    toc_heading = ParagraphStyle("plotarkToC", parent=styles["Heading2"],
                                  textColor=colors.HexColor(COLORS["stone_700"]),
                                  fontSize=14, spaceAfter=8, spaceBefore=8)
-    link_style = ParagraphStyle("PlotArkLink", parent=styles["Normal"],
+    link_style = ParagraphStyle("plotarkLink", parent=styles["Normal"],
                                 textColor=colors.HexColor(COLORS["blue_500"]),
                                 fontSize=11, spaceAfter=4)
 
@@ -385,7 +385,7 @@ def export_pdf(report: dict) -> bytes:
 
     modules = report.get("behavior_analysis", {}).get("module_engagement", [])
     if modules:
-        elements.append(Paragraph("Module Engagement Summary", ParagraphStyle("PlotArkH3", parent=h2_style, fontSize=12, spaceBefore=0)))
+        elements.append(Paragraph("Module Engagement Summary", ParagraphStyle("plotarkH3", parent=h2_style, fontSize=12, spaceBefore=0)))
         table_data = [["#", "Module", "Students", "Completion", "Struggle"]]
         for idx, m in enumerate(modules, 1):
             name_str = m.get("module_name", "")
@@ -430,7 +430,7 @@ def export_pdf(report: dict) -> bytes:
     time_on_task = report.get("behavior_analysis", {}).get("time_on_task", [])
     if time_on_task:
         elements.append(Spacer(1, 0.2*inch))
-        elements.append(Paragraph("Time-on-Task Analysis", ParagraphStyle("PlotArkH3", parent=h2_style, fontSize=12, spaceBefore=0)))
+        elements.append(Paragraph("Time-on-Task Analysis", ParagraphStyle("plotarkH3", parent=h2_style, fontSize=12, spaceBefore=0)))
         tot_table_data = [["Module", "Mean (min)", "Median (min)", "P90 (min)", "Outliers"]]
         for t in time_on_task:
             labels = ", ".join(f"{k}: {v}" for k, v in (t.get("outlier_labels") or {}).items())
@@ -465,7 +465,7 @@ def export_pdf(report: dict) -> bytes:
 
     if fb_signals:
         # Per-module distribution table (matches UI layout)
-        h3_fb = ParagraphStyle("PlotArkH3FB", parent=h2_style, fontSize=12, spaceBefore=0)
+        h3_fb = ParagraphStyle("plotarkH3FB", parent=h2_style, fontSize=12, spaceBefore=0)
         elements.append(Paragraph("Module Feedback Distribution", h3_fb))
         elements.append(Spacer(1, 0.1*inch))
 
@@ -517,7 +517,7 @@ def export_pdf(report: dict) -> bytes:
         # Cross-validation flags
         flagged = [fb for fb in fb_signals if fb.get("cross_flags")]
         if flagged:
-            elements.append(Paragraph("Cross-Validation Flags", ParagraphStyle("PlotArkH3CV", parent=h2_style, fontSize=11, spaceBefore=6)))
+            elements.append(Paragraph("Cross-Validation Flags", ParagraphStyle("plotarkH3CV", parent=h2_style, fontSize=11, spaceBefore=6)))
             elements.append(Spacer(1, 0.05*inch))
             for fb in flagged:
                 for flag in fb.get("cross_flags", []):

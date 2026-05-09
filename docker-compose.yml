@@ -1,44 +1,94 @@
+version: "3.9"
+
 services:
+
   frontend:
     build: ./frontend
+
+    container_name: plotark_frontend
+
     ports:
-      - "5173:3000"
+      - "5174:3000"
+
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
+
     environment:
-      - CHOKIDAR_USEPOLLING=true
-    env_file: .env
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+
+    env_file:
+      - .env
+
+    stdin_open: true
+    tty: true
+
     depends_on:
       - backend
 
+    restart: unless-stopped
+
   backend:
     build: ./backend
+    env_file:
+      - .env
+
+    container_name: plotark_backend
+
     ports:
-      - "5000:5000"
+      - "5001:5000"
+
     volumes:
       - ./backend:/app
       - ./data:/data
+
     environment:
-      - LTM_DIR=/data/ltm
-    env_file: .env
+      FLASK_ENV: development
+      PYTHONUNBUFFERED: "1"
+      LTM_DIR: /data/ltm
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: plotark
+      DB_USER: plotark
+      DB_PASSWORD: plotark
+
+   
+
     depends_on:
       - redis
       - postgres
 
+    restart: unless-stopped
+
   redis:
     image: redis:alpine
-    ports:
-      - "6380:6379"
+
+    container_name: plotark_redis
+
+    restart: unless-stopped
 
   postgres:
     image: postgres:15-alpine
+
+    container_name: plotark_postgres
+
     environment:
       POSTGRES_DB: plotark
       POSTGRES_USER: plotark
       POSTGRES_PASSWORD: plotark
+
+    ports:
+      - "5432:5432"
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+    restart: unless-stopped
 
 volumes:
   postgres_data:

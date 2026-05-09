@@ -1,0 +1,8 @@
+#! 0-plot-ark-namespace.yaml
+# Generated code, do not edit
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: plot-ark
+    labels:
+        com.docker.compose.project: plot-ark

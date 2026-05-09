@@ -1,48 +1,45 @@
-"""Database operations: connection, init, and curriculum save."""
+"""Database operations: connection, initialization, and curriculum persistence."""
 
 import json
-import re
 import time
 import psycopg2
 import psycopg2.pool
+
 from config import DATABASE_URL
 
-# ── Connection Pool ──────────────────────────────────────────────────────────
-# Lazy-init: pool is created on first get_db() call after init_db() succeeds.
-_pool: psycopg2.pool.ThreadedConnectionPool | None = None
+# ---------------------------------------------------------------------------
+# Connection Pool
+# ---------------------------------------------------------------------------
+_pool = None
 
 
 def _ensure_pool():
-    """Create the connection pool if it doesn't exist yet."""
+    """Initialize the PostgreSQL connection pool."""
     global _pool
+
     if _pool is None:
         try:
             _pool = psycopg2.pool.ThreadedConnectionPool(
-                minconn=1, maxconn=10, dsn=DATABASE_URL
+                minconn=1,
+                maxconn=20,
+                dsn=DATABASE_URL,
             )
+            print("PostgreSQL connection pool initialized.")
         except Exception as e:
-            print(f"Failed to create connection pool: {e}")
+            print(f"Failed to initialize DB pool: {e}")
+            _pool = None
 
 
+# ---------------------------------------------------------------------------
+# Pooled Connection Wrapper
+# ---------------------------------------------------------------------------
 class PooledConnection:
-    """Wrapper around a psycopg2 connection that returns it to the pool on close().
-
-    Backward-compatible: works with both patterns:
-        # Old pattern (still works — close() returns to pool instead of destroying)
-        conn = get_db()
-        ...
-        conn.close()
-
-        # New pattern (preferred)
-        with get_db() as conn:
-            ...
-    """
+    """Wrapper that returns connection back to pool on close()."""
 
     def __init__(self, conn, pool):
         self._conn = conn
         self._pool = pool
 
-    # ── Proxy all connection methods ──────────────────────────────────────
     def cursor(self, *args, **kwargs):
         return self._conn.cursor(*args, **kwargs)
 
@@ -61,7 +58,6 @@ class PooledConnection:
         self._conn.autocommit = value
 
     def close(self):
-        """Return connection to the pool instead of closing it."""
         if self._conn and self._pool:
             try:
                 self._pool.putconn(self._conn)
@@ -69,30 +65,27 @@ class PooledConnection:
                 pass
             self._conn = None
 
-    # ── Context manager support ───────────────────────────────────────────
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_value, traceback):
         self.close()
         return False
 
-    # ── Make truthiness checks work (if not conn: ...) ────────────────────
     def __bool__(self):
         return self._conn is not None
 
 
+# ---------------------------------------------------------------------------
+# DB Connection Helpers
+# ---------------------------------------------------------------------------
 def get_db():
-    """Return a pooled DB connection (backward-compatible).
-
-    The returned PooledConnection wraps a real psycopg2 connection and
-    returns it to the pool when close() is called.
-
-    Returns None if the pool cannot be created or is exhausted.
-    """
+    """Return pooled DB connection."""
     _ensure_pool()
+
     if _pool is None:
         return None
+
     try:
         conn = _pool.getconn()
         return PooledConnection(conn, _pool)
@@ -102,28 +95,45 @@ def get_db():
 
 
 def get_db_raw():
-    """Non-pooled connection for init_db() bootstrap (before pool exists)."""
+    """Direct raw PostgreSQL connection."""
     try:
         return psycopg2.connect(DATABASE_URL)
     except Exception as e:
-        print(f"DB connection error: {e}")
+        print(f"Raw DB connection error: {e}")
         return None
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 def normalize_semester(raw: str) -> str:
-    """'fall 2025' → 'Fall 2025'. Ensures consistent casing."""
+    """Normalize semester formatting."""
+    if not raw:
+        return ""
+
     parts = raw.strip().split()
+
     if len(parts) == 2:
         return f"{parts[0].capitalize()} {parts[1]}"
+
     return raw.strip().title()
 
 
+# ---------------------------------------------------------------------------
+# Database Initialization
+# ---------------------------------------------------------------------------
 def init_db():
+    """Initialize all required database tables."""
     for attempt in range(10):
         conn = get_db_raw()
+
         if conn:
             try:
                 cur = conn.cursor()
+
+                # -------------------------------------------------------------------
+                # curricula
+                # -------------------------------------------------------------------
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS curricula (
                         id SERIAL PRIMARY KEY,
@@ -136,12 +146,14 @@ def init_db():
                         module_count INTEGER,
                         modules JSONB,
                         sources JSONB,
+                        semester TEXT DEFAULT '',
                         is_favorite BOOLEAN DEFAULT FALSE
                     )
                 """)
-                cur.execute("""
-                    ALTER TABLE curricula ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN DEFAULT FALSE
-                """)
+
+                # -------------------------------------------------------------------
+                # xapi_statements
+                # -------------------------------------------------------------------
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS xapi_statements (
                         id SERIAL PRIMARY KEY,
@@ -150,11 +162,16 @@ def init_db():
                         verb TEXT NOT NULL,
                         object_id TEXT NOT NULL,
                         object_name TEXT NOT NULL,
+                        response TEXT,
                         timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                         curriculum_topic TEXT,
                         course_id INTEGER
                     )
                 """)
+
+                # -------------------------------------------------------------------
+                # student_feedback
+                # -------------------------------------------------------------------
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS student_feedback (
                         id SERIAL PRIMARY KEY,
@@ -167,10 +184,10 @@ def init_db():
                         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                 """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_feedback_course
-                    ON student_feedback(course_id)
-                """)
+
+                # -------------------------------------------------------------------
+                # course_analysis_snapshots
+                # -------------------------------------------------------------------
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS course_analysis_snapshots (
                         id SERIAL PRIMARY KEY,
@@ -188,10 +205,10 @@ def init_db():
                         is_favorite BOOLEAN DEFAULT FALSE
                     )
                 """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_snapshots_course
-                    ON course_analysis_snapshots(course_id, run_at DESC)
-                """)
+
+                # -------------------------------------------------------------------
+                # change_log
+                # -------------------------------------------------------------------
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS change_log (
                         id SERIAL PRIMARY KEY,
@@ -201,27 +218,15 @@ def init_db():
                         flag_reason TEXT[],
                         recommendation TEXT,
                         agent VARCHAR DEFAULT 'curriculum_agent',
-                        status VARCHAR DEFAULT 'pending'
+                        status VARCHAR DEFAULT 'pending',
+                        backup_data TEXT,
+                        change_type VARCHAR DEFAULT 'objective_update'
                     )
                 """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_changelog_course
-                    ON change_log(course_id, timestamp DESC)
-                """)
-                # Add backup_data column for redo/undo support (idempotent)
-                cur.execute("""
-                    DO $$ BEGIN
-                        ALTER TABLE change_log ADD COLUMN backup_data TEXT;
-                    EXCEPTION WHEN duplicate_column THEN NULL;
-                    END $$;
-                """)
-                # Add change_type column to distinguish objective/reference/assignment changes
-                cur.execute("""
-                    DO $$ BEGIN
-                        ALTER TABLE change_log ADD COLUMN change_type VARCHAR DEFAULT 'objective_update';
-                    EXCEPTION WHEN duplicate_column THEN NULL;
-                    END $$;
-                """)
+
+                # -------------------------------------------------------------------
+                # module_flags
+                # -------------------------------------------------------------------
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS module_flags (
                         id SERIAL PRIMARY KEY,
@@ -233,10 +238,10 @@ def init_db():
                         dismissed BOOLEAN DEFAULT FALSE
                     )
                 """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_module_flags_course
-                    ON module_flags(course_id, dismissed)
-                """)
+
+                # -------------------------------------------------------------------
+                # cohort_concept_mastery
+                # -------------------------------------------------------------------
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS cohort_concept_mastery (
                         id SERIAL PRIMARY KEY,
@@ -254,37 +259,16 @@ def init_db():
                         fb_mostly INTEGER DEFAULT 0,
                         fb_confused INTEGER DEFAULT 0,
                         fb_not_read INTEGER DEFAULT 0,
-                        valid_from TIMESTAMP DEFAULT now(),
+                        valid_from TIMESTAMP DEFAULT NOW(),
                         valid_to TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT now(),
+                        updated_at TIMESTAMP DEFAULT NOW(),
                         UNIQUE(course_id, semester, module_id, concept_id, valid_from)
                     )
                 """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_mastery_course
-                    ON cohort_concept_mastery(course_id, semester)
-                """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_xapi_actor
-                    ON xapi_statements(actor_email)
-                """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_xapi_verb
-                    ON xapi_statements(verb)
-                """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_xapi_object
-                    ON xapi_statements(object_id)
-                """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_xapi_topic
-                    ON xapi_statements(curriculum_topic)
-                """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_xapi_timestamp
-                    ON xapi_statements(timestamp)
-                """)
-                # ── concept_annotations (for KGContextAnalyst + annotation routes) ──
+
+                # -------------------------------------------------------------------
+                # concept_annotations
+                # -------------------------------------------------------------------
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS concept_annotations (
                         id SERIAL PRIMARY KEY,
@@ -296,11 +280,10 @@ def init_db():
                         created_at TIMESTAMPTZ DEFAULT NOW()
                     )
                 """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_annotations_course
-                    ON concept_annotations(course_id)
-                """)
-                # ── student_profiles (student-facing profile page) ──────────────
+
+                # -------------------------------------------------------------------
+                # student_profiles
+                # -------------------------------------------------------------------
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS student_profiles (
                         id SERIAL PRIMARY KEY,
@@ -309,24 +292,17 @@ def init_db():
                         preferred_style TEXT DEFAULT '',
                         persona_sets JSONB DEFAULT '[]',
                         avatar_url TEXT DEFAULT '',
+                        discipline TEXT DEFAULT 'humanities',
+                        custom_prompt TEXT DEFAULT '',
+                        model_config JSONB DEFAULT '{}',
                         created_at TIMESTAMPTZ DEFAULT NOW(),
                         updated_at TIMESTAMPTZ DEFAULT NOW()
                     )
                 """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_student_profiles_email
-                    ON student_profiles(email)
-                """)
-                # Safe migrations for columns added after initial deploy
-                cur.execute("ALTER TABLE xapi_statements ADD COLUMN IF NOT EXISTS course_id INTEGER")
-                cur.execute("ALTER TABLE xapi_statements ADD COLUMN IF NOT EXISTS response TEXT")
-                cur.execute("ALTER TABLE course_analysis_snapshots ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN DEFAULT FALSE")
-                cur.execute("ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT ''")
-                cur.execute("ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS discipline TEXT DEFAULT 'humanities'")
-                cur.execute("ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS custom_prompt TEXT DEFAULT ''")
-                cur.execute("ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS model_config JSONB DEFAULT '{}'")
 
-                # ── prompt_templates (professor-editable prompt instructions) ──
+                # -------------------------------------------------------------------
+                # prompt_templates
+                # -------------------------------------------------------------------
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS prompt_templates (
                         id SERIAL PRIMARY KEY,
@@ -335,44 +311,159 @@ def init_db():
                         updated_at TIMESTAMPTZ DEFAULT NOW()
                     )
                 """)
-                cur.execute("ALTER TABLE curricula ADD COLUMN IF NOT EXISTS semester TEXT DEFAULT ''")
-                cur.execute("ALTER TABLE concept_annotations ADD COLUMN IF NOT EXISTS student_id TEXT DEFAULT 'anonymous'")
+
+                # -------------------------------------------------------------------
+                # Indexes
+                # -------------------------------------------------------------------
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_feedback_course
+                    ON student_feedback(course_id)
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_snapshots_course
+                    ON course_analysis_snapshots(course_id, run_at DESC)
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_changelog_course
+                    ON change_log(course_id, timestamp DESC)
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_module_flags_course
+                    ON module_flags(course_id, dismissed)
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_mastery_course
+                    ON cohort_concept_mastery(course_id, semester)
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_xapi_actor
+                    ON xapi_statements(actor_email)
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_xapi_verb
+                    ON xapi_statements(verb)
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_xapi_object
+                    ON xapi_statements(object_id)
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_xapi_topic
+                    ON xapi_statements(curriculum_topic)
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_xapi_timestamp
+                    ON xapi_statements(timestamp)
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_annotations_course
+                    ON concept_annotations(course_id)
+                """)
+
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_student_profiles_email
+                    ON student_profiles(email)
+                """)
+
                 conn.commit()
                 cur.close()
                 conn.close()
-                # Now bootstrap the pool since DB is ready
+
                 _ensure_pool()
-                print("DB initialized.")
+
+                print("Database initialized successfully.")
                 return
+
             except Exception as e:
-                print(f"DB init error: {e}")
-                conn.close()
+                print(f"Database init error: {e}")
+
+                try:
+                    conn.rollback()
+                    conn.close()
+                except Exception:
+                    pass
+
                 return
-        print(f"DB not ready, retrying ({attempt + 1}/10)...")
+
+        print(f"Database not ready. Retry {attempt + 1}/10...")
         time.sleep(3)
-    print("Could not connect to DB after 10 attempts. Continuing without DB.")
+
+    print("Could not connect to database after retries.")
 
 
-def save_curriculum(topic, level, audience, course_code, course_type, module_count, data, design_approach="addie", semester="") -> int | None:
-    """Save curriculum and return the new course id."""
+# ---------------------------------------------------------------------------
+# Curriculum Save
+# ---------------------------------------------------------------------------
+def save_curriculum(
+    topic,
+    level,
+    audience,
+    course_code,
+    course_type,
+    module_count,
+    data,
+    design_approach="addie",
+    semester="",
+):
+    """Save curriculum and return inserted course ID."""
+
     with get_db() as conn:
         if not conn:
             return None
+
         try:
-            normalized_semester = normalize_semester(semester) if semester else ""
-            cur = conn.cursor()
-            cur.execute(
-                """INSERT INTO curricula (topic, level, audience, course_code, course_type, module_count, modules, sources, semester)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-                (topic, level, audience, course_code, course_type, module_count,
-                 json.dumps(data.get("modules", [])),
-                 json.dumps(data.get("sources", [])),
-                 normalized_semester)
+            normalized_semester = (
+                normalize_semester(semester) if semester else ""
             )
+
+            cur = conn.cursor()
+
+            cur.execute(
+                """
+                INSERT INTO curricula (
+                    topic,
+                    level,
+                    audience,
+                    course_code,
+                    course_type,
+                    module_count,
+                    modules,
+                    sources,
+                    semester
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    topic,
+                    level,
+                    audience,
+                    course_code,
+                    course_type,
+                    module_count,
+                    json.dumps(data.get("modules", [])),
+                    json.dumps(data.get("sources", [])),
+                    normalized_semester,
+                ),
+            )
+
             new_id = cur.fetchone()[0]
+
             conn.commit()
             cur.close()
+
             return new_id
+
         except Exception as e:
-            print(f"DB save error: {e}")
+            print(f"Curriculum save error: {e}")
             return None
