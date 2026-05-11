@@ -91,75 +91,46 @@ def generate_curriculum():
         optional_sources=[],
     )
 
-    def event_stream():
+    try:
 
-        yield f"data: {json.dumps({'status': 'generating', 'message': 'Generating curriculum...'})}\n\n"
+        # GEMINI
+        if AI_PROVIDER == "gemini":
 
-        try:
+            response = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+            )
 
-            # GEMINI
-            if AI_PROVIDER == "gemini":
+            full_text = response.text
 
-                response = client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=prompt,
-                )
+        # OPENAI
+        else:
 
-                full_text = response.text
+            response = openai_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+            )
 
-                yield f"data: {json.dumps({'text': full_text})}\n\n"
+            full_text = response.choices[0].message.content
 
-            # OPENAI
-            else:
+        clean = (
+            full_text.replace("```json", "")
+            .replace("```", "")
+            .strip()
+        )
 
-                response = openai_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role": "user", "content": prompt}],
-                )
+        first = clean.index("{")
+        last = clean.rindex("}")
 
-                full_text = response.choices[0].message.content
+        parsed = json.loads(
+            _sanitize_json(clean[first:last + 1])
+        )
 
-                yield f"data: {json.dumps({'text': full_text})}\n\n"
+        return jsonify(parsed)
 
-            try:
-                clean = (
-                    full_text.replace("```json", "")
-                    .replace("```", "")
-                    .strip()
-                )
-
-                first = clean.index("{")
-                last = clean.rindex("}")
-
-                parsed = json.loads(
-                    _sanitize_json(clean[first:last + 1])
-                )
-
-                new_id = save_curriculum(
-                    topic,
-                    level,
-                    audience,
-                    data.get("course_code", ""),
-                    data.get("course_type", "mixed"),
-                    int(data.get("module_count", 6)),
-                    parsed,
-                    data.get("design_approach", "addie"),
-                )
-
-                print(f"Saved curriculum ID: {new_id}")
-
-            except Exception as parse_error:
-                print(f"Parse/save error: {parse_error}")
-
-        except Exception as e:
-            print(f"Stream error: {e}")
-
-        yield "data: [DONE]\n\n"
-
-    return Response(
-        stream_with_context(event_stream()),
-        mimetype="text/event-stream",
-    )
+    except Exception as e:
+        print(f"Skeleton error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # =========================================================

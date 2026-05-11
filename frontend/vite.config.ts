@@ -15,14 +15,16 @@ export default defineConfig(({ mode }) => {
         },
         proxy: {
           '/api': {
-            target: 'http://backend:5000',
+            target: 'https://mindweave-ai-backend.onrender.com',
             changeOrigin: true,
-          },
-          '/xapi': {
-            target: 'http://backend:5000',
-            changeOrigin: true,
-          },
+            secure: true,
         },
+        '/xapi': {
+          target: 'https://mindweave-ai-backend.onrender.com',
+          changeOrigin: true,
+          secure: true,
+        },
+      },
       },
       plugins: [react()],
       define: {
