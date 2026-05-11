@@ -8,7 +8,7 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
+const API = import.meta.env.VITE_API_URL ?? 'https://mindweave-ai-backend.onrender.com';
 
 export interface Suggestion {
   module_id: string;

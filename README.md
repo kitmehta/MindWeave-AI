@@ -375,7 +375,7 @@ docker compose up --build
 | Service | URL |
 |---------|-----|
 | Frontend | http://localhost:5173 |
-| Backend | http://localhost:5000 |
+| Backend | https://mindweave-ai-backend.onrender.com |
 
 ---
 

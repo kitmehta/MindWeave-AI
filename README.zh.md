@@ -373,7 +373,7 @@ docker compose up --build
 | 服务 | 地址 |
 |------|------|
 | 前端 | http://localhost:5173 |
-| 后端 | http://localhost:5000 |
+| 后端 | https://mindweave-ai-backend.onrender.com |
 
 
 ---
