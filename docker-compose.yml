@@ -1,11 +1,11 @@
-version: "3.9"
+#version: "3.9"
 
 services:
 
   frontend:
     build: ./frontend
 
-    container_name: plotark_frontend
+    container_name: mindweave_frontend
 
     ports:
       - "5174:3000"
@@ -34,7 +34,7 @@ services:
     env_file:
       - .env
 
-    container_name: plotark_backend
+    container_name: mindweave_backend
 
     ports:
       - "5001:5000"
@@ -68,14 +68,14 @@ services:
   redis:
     image: redis:alpine
 
-    container_name: plotark_redis
+    container_name: mindweave_redis
 
     restart: unless-stopped
 
   postgres:
     image: postgres:15-alpine
 
-    container_name: plotark_postgres
+    container_name: mindweave_postgres
 
     environment:
       POSTGRES_DB: plotark

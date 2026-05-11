@@ -18,3 +18,4 @@ cryptography>=42.0.0
 groq
 sentence-transformers
 gunicorn
+torch==2.2.2 --index-url https://download.pytorch.org/whl/cpu
