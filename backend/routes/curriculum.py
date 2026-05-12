@@ -17,7 +17,7 @@ from services.prompt_builder import (
 
 # =========================================================
 
-curriculum_bp = Blueprint("curriculum", __name__)
+curriculum_bp = Blueprint("curriculum", __name__, url_prefix="/api/curriculum")
 
 
 # =========================================================
@@ -48,7 +48,7 @@ def extract_json(text: str):
 # =========================================================
 # GENERATE FULL CURRICULUM
 # =========================================================
-@curriculum_bp.route("/api/curriculum/generate", methods=["POST"])
+@curriculum_bp.route("/generate", methods=["POST"])
 def generate_curriculum():
 
     data = request.get_json()
