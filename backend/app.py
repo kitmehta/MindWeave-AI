@@ -1,6 +1,10 @@
 """Plot-Ark backend entry point."""
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+print("DATABASE_URL =", os.getenv("DATABASE_URL"))
 
 from extensions import app
 from db import init_db

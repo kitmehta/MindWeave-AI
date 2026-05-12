@@ -2,68 +2,52 @@
 
 import json
 import os
+import re
 from flask import Blueprint, request, Response, stream_with_context, jsonify
 
 from config import AI_PROVIDER
-from extensions import openai_client, redis_client
+from extensions import openai_client
 from db import save_curriculum
 
-from google import genai
-
-from services.research import research_sources
 from services.prompt_builder import (
     build_generate_prompt,
     build_skeleton_prompt,
     build_expand_prompt,
 )
 
-# GEMINI CLIENT
-client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+# =========================================================
 
 curriculum_bp = Blueprint("curriculum", __name__)
 
 
-def _sanitize_json(text: str) -> str:
-    result = []
-    in_string = False
-    escaped = False
+# =========================================================
+# SAFE JSON EXTRACTION (ROBUST)
+# =========================================================
+def extract_json(text: str):
+    """
+    Safely extracts first valid JSON object from LLM output.
+    """
+    try:
+        match = re.search(r"\{[\s\S]*\}", text)
+        if not match:
+            return None
 
-    for ch in text:
-        if escaped:
-            result.append(ch)
-            escaped = False
-            continue
+        cleaned = match.group(0)
 
-        if ch == "\\":
-            result.append(ch)
-            escaped = True
-            continue
+        # remove markdown artifacts
+        cleaned = cleaned.replace("```json", "").replace("```", "").strip()
 
-        if ch == '"':
-            in_string = not in_string
-            result.append(ch)
-            continue
+        return json.loads(cleaned)
 
-        if in_string and ord(ch) < 0x20:
-            _ESC = {
-                "\n": "\\n",
-                "\r": "\\r",
-                "\t": "\\t",
-                "\x0b": "\\u000b",
-                "\x0c": "\\f",
-                "\x08": "\\b",
-            }
-            result.append(_ESC.get(ch, f"\\u{ord(ch):04x}"))
-        else:
-            result.append(ch)
-
-    return "".join(result)
+    except Exception as e:
+        print("JSON extraction error:", e)
+        print("RAW OUTPUT:", text[:1000])
+        return None
 
 
 # =========================================================
 # GENERATE FULL CURRICULUM
 # =========================================================
-
 @curriculum_bp.route("/api/curriculum/generate", methods=["POST"])
 def generate_curriculum():
 
@@ -74,7 +58,7 @@ def generate_curriculum():
     audience = data.get("audience", "")
 
     if not all([topic, level, audience]):
-        return {"error": "Missing required fields"}, 400
+        return jsonify({"error": "Missing required fields"}), 400
 
     prompt = build_generate_prompt(
         topic=topic,
@@ -93,57 +77,38 @@ def generate_curriculum():
 
     try:
 
-        # GEMINI
-        if AI_PROVIDER == "gemini":
-
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-            )
-
-            full_text = response.text
-
-        # OPENAI
-        else:
-
-            response = openai_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}],
-            )
-
-            full_text = response.choices[0].message.content
-
-        clean = (
-            full_text.replace("```json", "")
-            .replace("```", "")
-            .strip()
+        response = openai_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
         )
 
-        first = clean.index("{")
-        last = clean.rindex("}")
+        full_text = response.choices[0].message.content
+        #print(full_text)
 
-        parsed = json.loads(
-            _sanitize_json(clean[first:last + 1])
-        )
+        parsed = extract_json(full_text)
+
+        if not parsed:
+            return jsonify({
+                "error": "Invalid curriculum JSON",
+                "raw": full_text[:1000]
+            }), 500
 
         return jsonify(parsed)
 
     except Exception as e:
-        print(f"Skeleton error: {e}")
+        print("Generate error:", e)
         return jsonify({"error": str(e)}), 500
 
 
 # =========================================================
 # SAVE CURRICULUM
 # =========================================================
-
 @curriculum_bp.route("/api/curriculum/save", methods=["POST"])
 def save_curriculum_endpoint():
 
     data = request.get_json()
 
     try:
-
         parsed = {
             "modules": data.get("modules", []),
             "sources": data.get("sources", []),
@@ -168,14 +133,13 @@ def save_curriculum_endpoint():
         })
 
     except Exception as e:
-        print(f"Save endpoint error: {e}")
+        print("Save error:", e)
         return jsonify({"error": str(e)}), 500
 
 
 # =========================================================
-# GENERATE SKELETON
+# GENERATE SKELETON (FIXED - MOST IMPORTANT)
 # =========================================================
-
 @curriculum_bp.route("/api/curriculum/skeleton", methods=["POST"])
 def generate_skeleton():
 
@@ -186,7 +150,7 @@ def generate_skeleton():
     audience = data.get("audience", "")
 
     if not all([topic, level, audience]):
-        return {"error": "Missing required fields"}, 400
+        return jsonify({"error": "Missing required fields"}), 400
 
     module_count = int(data.get("module_count", 6))
 
@@ -201,51 +165,34 @@ def generate_skeleton():
         design_approach=data.get("design_approach", "addie"),
     )
 
-    def event_stream():
+    try:
 
-        yield f"data: {json.dumps({'status': 'generating', 'message': 'Generating skeleton...'})}\n\n"
+        response = openai_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        full_text = response.choices[0].message.content
 
-        try:
+        #print(full_text)
 
-            # GEMINI
-            if AI_PROVIDER == "gemini":
+        parsed = extract_json(full_text)
 
-                response = client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=prompt,
-                )
+        if not parsed:
+            return jsonify({
+                "error": "Invalid skeleton response",
+                "raw": full_text[:1000]
+            }), 500
 
-                full_text = response.text
+        return jsonify(parsed)
 
-                yield f"data: {json.dumps({'text': full_text})}\n\n"
-
-            # OPENAI
-            else:
-
-                response = openai_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role": "user", "content": prompt}],
-                )
-
-                full_text = response.choices[0].message.content
-
-                yield f"data: {json.dumps({'text': full_text})}\n\n"
-
-        except Exception as e:
-            print(f"Skeleton stream error: {e}")
-
-        yield "data: [DONE]\n\n"
-
-    return Response(
-        stream_with_context(event_stream()),
-        mimetype="text/event-stream",
-    )
+    except Exception as e:
+        print("Skeleton error:", e)
+        return jsonify({"error": str(e)}), 500
 
 
 # =========================================================
 # EXPAND MODULE
 # =========================================================
-
 @curriculum_bp.route("/api/curriculum/expand", methods=["POST"])
 def expand_module():
 
@@ -255,7 +202,7 @@ def expand_module():
     module_index = data.get("module_index", 0)
 
     if not skeleton:
-        return {"error": "No skeleton provided"}, 400
+        return jsonify({"error": "No skeleton provided"}), 400
 
     module = skeleton[module_index]
 
@@ -278,36 +225,27 @@ def expand_module():
 
     def event_stream():
 
-        yield f"data: {json.dumps({'status': 'expanding', 'message': 'Expanding module...'})}\n\n"
+        yield f"data: {json.dumps({'status': 'expanding'})}\n\n"
+
+        full_text = ""
 
         try:
 
-            # GEMINI
-            if AI_PROVIDER == "gemini":
+            response = openai_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+            )
 
-                response = client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=prompt,
-                )
+            full_text = response.choices[0].message.content
 
-                full_text = response.text
+            #print("\n========== EXPAND RESPONSE ==========\n")
+            #print(full_text)
+            print("\n=====================================\n")
 
-                yield f"data: {json.dumps({'text': full_text})}\n\n"
-
-            # OPENAI
-            else:
-
-                response = openai_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role": "user", "content": prompt}],
-                )
-
-                full_text = response.choices[0].message.content
-
-                yield f"data: {json.dumps({'text': full_text})}\n\n"
+            yield f"data: {json.dumps({'text': full_text})}\n\n"
 
         except Exception as e:
-            print(f"Expand module error: {e}")
+            print("Expand error:", e)
 
         yield "data: [DONE]\n\n"
 

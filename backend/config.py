@@ -13,21 +13,12 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 # AI Provider
 # ---------------------------------------------------------------------------
-AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini").lower()
+AI_PROVIDER = os.getenv("AI_PROVIDER", "groq").lower()
 
 # ---------------------------------------------------------------------------
 # Database Configuration
 # ---------------------------------------------------------------------------
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://plotark:plotark@postgres:5432/plotark"
-)
-
-DB_HOST = os.getenv("DB_HOST", "postgres")
-DB_PORT = int(os.getenv("DB_PORT", 5432))
-DB_NAME = os.getenv("DB_NAME", "plotark")
-DB_USER = os.getenv("DB_USER", "plotark")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "plotark")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # ---------------------------------------------------------------------------
 # API Keys
@@ -86,7 +77,7 @@ AVAILABLE_MODELS = [
     },
     {
         "value": "llama-3.3-70b-versatile",
-        "label": "GPT-4o Mini",
+        "label": "Llama 3.3 70B Versatile",
         "provider": "openai",
         "cost": 0.03,
         "arch": "dense",

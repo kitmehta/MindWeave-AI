@@ -134,7 +134,7 @@ const GeneratePage: React.FC = () => {
     setStep('skeleton-review');
 
     try {
-      const res = await fetch('/api/curriculum/skeleton', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/curriculum/skeleton`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,44 +150,13 @@ const GeneratePage: React.FC = () => {
         }),
       });
 
-      if (!res.ok || !res.body) {
+      if (!res.ok) {
         throw new Error(`Server error: ${res.status}`);
       }
 
       // Read SSE stream
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let fullText = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const payload = line.slice(6).trim();
-          if (payload === '[DONE]') continue;
-          try {
-            const data = JSON.parse(payload);
-            if (data.text) fullText += data.text;
-          } catch {
-            // ignore
-          }
-        }
-      }
-
-      // Parse the skeleton JSON
-      const clean = fullText.replace(/```json\n?/g, '').replace(/```/g, '').trim();
-      const first = clean.indexOf('{');
-      const last = clean.lastIndexOf('}');
-      if (first === -1 || last === -1) throw new Error('Invalid skeleton response');
-
-      const parsed = JSON.parse(clean.slice(first, last + 1));
+      const parsed = await res.json();
       const mods: SkeletonModule[] = (parsed.modules || []).map((m: any, i: number) => ({
         module_number: m.module_number ?? i + 1,
         title: m.title || `Module ${i + 1}`,
@@ -225,7 +194,7 @@ const GeneratePage: React.FC = () => {
           approved_sources: approvedSources,
         };
 
-        const res = await fetch('/api/curriculum/expand', {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/curriculum/expand`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -277,7 +246,7 @@ const GeneratePage: React.FC = () => {
         retrieved_at: new Date().toISOString().slice(0, 10),
       }));
 
-      const res = await fetch('/api/curriculum/save', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/curriculum/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
