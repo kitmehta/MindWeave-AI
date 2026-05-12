@@ -103,7 +103,7 @@ def generate_curriculum():
 # =========================================================
 # SAVE CURRICULUM
 # =========================================================
-@curriculum_bp.route("/api/curriculum/save", methods=["POST"])
+@curriculum_bp.route("/save", methods=["POST"])
 def save_curriculum_endpoint():
 
     data = request.get_json()
@@ -140,7 +140,7 @@ def save_curriculum_endpoint():
 # =========================================================
 # GENERATE SKELETON (FIXED - MOST IMPORTANT)
 # =========================================================
-@curriculum_bp.route("/api/curriculum/skeleton", methods=["POST"])
+@curriculum_bp.route("/skeleton", methods=["POST"])
 def generate_skeleton():
 
     data = request.get_json()
@@ -193,7 +193,7 @@ def generate_skeleton():
 # =========================================================
 # EXPAND MODULE
 # =========================================================
-@curriculum_bp.route("/api/curriculum/expand", methods=["POST"])
+@curriculum_bp.route("/expand", methods=["POST"])
 def expand_module():
 
     data = request.get_json()
