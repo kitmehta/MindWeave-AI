@@ -1,6 +1,7 @@
 """Plot-Ark backend entry point."""
 
 import os
+import traceback
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -68,12 +69,14 @@ try:
     print("Database initialized successfully.")
 except Exception as e:
     print(f"Database initialization failed: {e}")
+    traceback.print_exc()
 
 try:
     seed_mock_xapi()
     print("Mock xAPI seeded successfully.")
 except Exception as e:
     print(f"Mock xAPI seed failed: {e}")
+    traceback.print_exc()
 
 
 # ---------------------------------------------------------------------------
@@ -85,6 +88,6 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=port,
-        debug=True,
+        debug=False,
         threaded=True
     )
