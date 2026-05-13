@@ -1,10 +1,10 @@
 """Plot-Ark backend entry point."""
 
 import os
-import traceback
 from dotenv import load_dotenv
 
 load_dotenv()
+
 print("DATABASE_URL =", os.getenv("DATABASE_URL"))
 
 from extensions import app
@@ -64,19 +64,20 @@ def health_check():
 # ---------------------------------------------------------------------------
 # Startup Initialization
 # ---------------------------------------------------------------------------
-try:
-    init_db()
-    print("Database initialized successfully.")
-except Exception as e:
-    print(f"Database initialization failed: {e}")
-    traceback.print_exc()
 
-try:
-    seed_mock_xapi()
-    print("Mock xAPI seeded successfully.")
-except Exception as e:
-    print(f"Mock xAPI seed failed: {e}")
-    traceback.print_exc()
+# TEMPORARILY DISABLED FOR RENDER DEBUGGING
+# try:
+#     init_db()
+#     print("Database initialized successfully.")
+# except Exception as e:
+#     print(f"Database initialization failed: {e}")
+
+# TEMPORARILY DISABLED FOR RENDER DEBUGGING
+# try:
+#     seed_mock_xapi()
+#     print("Mock xAPI seeded successfully.")
+# except Exception as e:
+#     print(f"Mock xAPI seed failed: {e}")
 
 
 # ---------------------------------------------------------------------------
