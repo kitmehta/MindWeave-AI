@@ -12,7 +12,7 @@ from services.research import (
 sources_bp = Blueprint("sources", __name__, url_prefix="/api/sources")
 
 
-@sources_bp.route("/api/sources/preview", methods=["POST"])
+@sources_bp.route("/preview", methods=["POST"])
 def preview_sources():
     """
     Return researched sources for curriculum generation.
