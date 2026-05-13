@@ -465,6 +465,6 @@ def seed_mock_xapi():
     print("Seeding xAPI mock data for all courses (8% noise)...")
     from services.xapi_generator import generate_all_courses, seed_all_feedback
     result = generate_all_courses(noise_ratio=0.08)
-    print(f"xAPI seed complete: {result.get('total_statements', 0)} statements across {result.get('courses_processed', 0)} courses.")
+    print( f"xAPI seed complete: {result.get('total_statements', 0)} statements across " f"{result.get('courses_processed', 0)} courses." )
     fb_result = seed_all_feedback()
     print(f"Feedback seed complete: {fb_result.get('total_rows', 0)} rows.")
