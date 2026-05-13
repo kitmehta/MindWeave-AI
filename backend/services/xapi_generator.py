@@ -1171,7 +1171,8 @@ def generate_all_courses(noise_ratio: float = 0.08) -> dict:
                         (actor_email, actor_name, verb, object_id, object_name, timestamp, curriculum_topic)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """
-                    cur.executemany(insert_sql, statements)
+                    for stmt in statements:
+                        cur.execute(insert_sql, stmt)
                     conn.commit()
                     cur.close()
                     conn.close()
