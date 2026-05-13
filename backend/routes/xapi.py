@@ -3,6 +3,7 @@
 import json
 import random
 from datetime import datetime, timedelta
+from sys import prefix
 from flask import Blueprint, request, jsonify
 from db import get_db
 from extensions import redis_client
@@ -216,7 +217,6 @@ def get_course_xapi_analytics(course_id):
 
     try:
         cur = conn.cursor()
-        prefix = f"course/{course_id}/%"
 
         # Students in this course
         cur.execute("""
@@ -228,10 +228,10 @@ def get_course_xapi_analytics(course_id):
                 COUNT(*) FILTER (WHERE verb = 'failed') as failed,
                 MAX(timestamp) as last_seen
             FROM xapi_statements
-            WHERE object_id LIKE %s
+            WHERE course_id = %s
             GROUP BY actor_name, actor_email
             ORDER BY last_seen DESC
-        """, (prefix,))
+        """, (course_id,))
         students = [
             {
                 "name": r[0], "email": r[1], "total_actions": r[2],
@@ -242,18 +242,17 @@ def get_course_xapi_analytics(course_id):
         ]
 
         # Module completion rates
-        module_prefix = f"course/{course_id}/module/%"
         cur.execute("""
             SELECT object_id, object_name,
                 COUNT(DISTINCT actor_email) FILTER (WHERE verb IN ('completed', 'passed')) as completed,
                 COUNT(DISTINCT actor_email) FILTER (WHERE verb = 'struggled') as struggled,
                 COUNT(DISTINCT actor_email) as total_interacted
             FROM xapi_statements
-            WHERE object_id LIKE %s
+            WHERE course_id = %s
               AND object_id NOT LIKE %s
             GROUP BY object_id, object_name
             ORDER BY object_id
-        """, (module_prefix, f"course/{course_id}/module/%/%"))
+        """, (course_id, f"course/{course_id}/module/%/%"))
         modules = [
             {
                 "module_id": r[0], "module_name": r[1],
@@ -266,21 +265,21 @@ def get_course_xapi_analytics(course_id):
         cur.execute("""
             SELECT object_name, COUNT(*) as count
             FROM xapi_statements
-            WHERE object_id LIKE %s AND verb = 'struggled'
+            WHERE course_id = %s AND verb = 'struggled'
             GROUP BY object_name
             ORDER BY count DESC
             LIMIT 10
-        """, (prefix,))
+        """, (course_id,))
         struggling = [{"concept": r[0], "count": r[1]} for r in cur.fetchall()]
 
         # Verb distribution
         cur.execute("""
             SELECT verb, COUNT(*) as count
             FROM xapi_statements
-            WHERE object_id LIKE %s
+            WHERE course_id = %s
             GROUP BY verb
             ORDER BY count DESC
-        """, (prefix,))
+        """, (course_id,))
         verb_dist = {r[0]: r[1] for r in cur.fetchall()}
 
         # Daily activity — no hard cut-off so mock data (generated 14 days ago)
@@ -288,11 +287,11 @@ def get_course_xapi_analytics(course_id):
         cur.execute("""
             SELECT DATE(timestamp) as day, COUNT(*) as count
             FROM xapi_statements
-            WHERE object_id LIKE %s
+            WHERE course_id = %s
             GROUP BY DATE(timestamp)
             ORDER BY day
             LIMIT 30
-        """, (prefix,))
+        """, (course_id,))
         daily_activity = [
             {"date": r[0].isoformat(), "count": r[1]}
             for r in cur.fetchall()
@@ -318,7 +317,7 @@ def get_course_xapi_analytics(course_id):
 
 # ── Manual seed endpoint ─────────────────────────────────────────────────────
 
-@xapi_bp.route("/api/xapi/seed", methods=["POST"])
+@xapi_bp.route("/api/xapi/seed", methods=["GET", "POST"])
 def trigger_seed():
     """
     Manually trigger xAPI mock data generation for all courses.
