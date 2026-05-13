@@ -134,7 +134,7 @@ const GeneratePage: React.FC = () => {
     setStep('skeleton-review');
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/curriculum/skeleton`, {
+      const res = await fetch(`/api/curriculum/skeleton`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

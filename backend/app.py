@@ -32,7 +32,7 @@ from routes.prompts import prompts_bp
 # ---------------------------------------------------------------------------
 # Register Blueprints
 # ---------------------------------------------------------------------------
-app.register_blueprint(curriculum_bp)
+app.register_blueprint(curriculum_bp, url_prefix="/api/curriculum")
 app.register_blueprint(curriculum_agent_bp)
 app.register_blueprint(history_bp)
 app.register_blueprint(sources_bp)

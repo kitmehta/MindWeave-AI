@@ -1,5 +1,5 @@
 """Curriculum generation routes: generate, skeleton, expand, save."""
-
+print("🔥 curriculum.py FILE IS BEING IMPORTED")
 import json
 import os
 import re
@@ -18,6 +18,7 @@ from services.prompt_builder import (
 # =========================================================
 
 curriculum_bp = Blueprint("curriculum", __name__, url_prefix="/api/curriculum")
+print("🔥 curriculum blueprint LOADED")
 
 
 # =========================================================
@@ -142,6 +143,7 @@ def save_curriculum_endpoint():
 # =========================================================
 @curriculum_bp.route("/skeleton", methods=["POST"])
 def generate_skeleton():
+    print("🔥 HIT /api/curriculum/skeleton")
 
     data = request.get_json()
 

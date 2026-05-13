@@ -9,7 +9,7 @@ from services.research import (
     score_credibility,
 )
 
-sources_bp = Blueprint("sources", __name__)
+sources_bp = Blueprint("sources", __name__, url_prefix="/api/sources")
 
 
 @sources_bp.route("/api/sources/preview", methods=["POST"])
