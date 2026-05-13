@@ -104,7 +104,7 @@ const GeneratePage: React.FC = () => {
     setErrorMessage('');
     try {
       const resolvedLevel = level === 'other-custom' ? customLevel.trim() : level;
-      const res = await fetch('/api/sources/preview', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/sources/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic: topic.trim(), level: resolvedLevel, audience: audience.trim() }),
