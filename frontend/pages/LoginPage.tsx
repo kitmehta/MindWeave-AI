@@ -77,7 +77,7 @@ const LoginPage: React.FC = () => {
 
         {/* GitHub */}
         <a
-          href="https://github.com/Schlaflied/Plot-Ark"
+          href="https://github.com/kitmehta/MindWeave-AI"
           target="_blank"
           rel="noopener noreferrer"
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
