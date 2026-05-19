@@ -86,7 +86,7 @@ https://mind-weave-ai-rho.vercel.app/
 
 💻 GitHub Repository
 
-(Replace this with your actual GitHub repo link)
+https://github.com/kitmehta/MindWeave-AI
 
 📌 Resume-Friendly Project Description
 
