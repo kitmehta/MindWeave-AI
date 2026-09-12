@@ -136,7 +136,7 @@ except Exception as e:
 # ---------------------------------------------------------------------------
 def generate_with_groq(
     prompt: str,
-    model: str = "llama-3.3-70b-versatile"
+    model: str = "openai/gpt-oss-120b"
 ):
     """
     Safe Groq generation wrapper.

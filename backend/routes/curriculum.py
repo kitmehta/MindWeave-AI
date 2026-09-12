@@ -79,7 +79,7 @@ def generate_curriculum():
     try:
 
         response = openai_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": prompt}],
         )
 
@@ -170,7 +170,7 @@ def generate_skeleton():
     try:
 
         response = openai_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": prompt}],
         )
         full_text = response.choices[0].message.content
@@ -234,7 +234,7 @@ def expand_module():
         try:
 
             response = openai_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[{"role": "user", "content": prompt}],
             )
 

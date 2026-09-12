@@ -76,9 +76,9 @@ AVAILABLE_MODELS = [
         "recommended": True,
     },
     {
-        "value": "llama-3.3-70b-versatile",
-        "label": "Llama 3.3 70B Versatile",
-        "provider": "openai",
+        "value": "openai/gpt-oss-120b",
+        "label": "GPT-OSS 120B (Groq)",
+        "provider": "groq",
         "cost": 0.03,
         "arch": "dense",
     },
